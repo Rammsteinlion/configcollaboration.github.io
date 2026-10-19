@@ -124,7 +124,7 @@ export function useStoreFlow() {
                     this.historyLog = [];
                     const darkSaved = localStorage.getItem('storeflow_dark');
                     if (darkSaved !== null) this.darkMode = darkSaved === 'true';
-                    try { const session = JSON.parse(localStorage.getItem('storeflow_auth_session') || 'null'); if (session && session.token) { this.authToken = session.token; this.currentUser = session.name || ''; this.currentUserId = session.id || ''; this.currentUserArea = session.area || 'Sin área'; this.isAuthenticated = true; await this.loadHus(); await this.loadTeam(); } } catch (e) { this.logout(); }
+                    try { const session = JSON.parse(localStorage.getItem('storeflow_auth_session') || 'null'); if (session && session.token) { this.authToken = session.token; this.currentUser = session.name || ''; this.currentUserId = session.id || ''; this.currentUserArea = session.area || 'Sin área'; this.isAuthenticated = true; await this.loadHus(); await this.loadTeam(); } } catch (e) { this.logout(); if (e?.status === 401) this.authError = 'Tu sesión venció. Inicia sesión de nuevo.'; }
                 },
                 get meetingSteps() { return ['Repartir trabajo', 'Acuerdos', 'Resumen']; },
                 ensureMeetingData() {
@@ -337,7 +337,7 @@ export function useStoreFlow() {
                 selectEndpoint(ep) {
                     this.selectedEndpointId = ep.id;
                 },
-                apiUrl(route) { const configured = import.meta.env.VITE_API_BASE_URL || '/store/public/index.php'; const external = configured.startsWith('http://') || configured.startsWith('https://'); const base = external ? configured : new URL(configured, location.origin).toString(); return base + '?route=' + encodeURIComponent(route); },
+                apiUrl(route) { const configured = import.meta.env.VITE_API_BASE_URL || '/store/backend_store/public/index.php'; const external = configured.startsWith('http://') || configured.startsWith('https://'); const base = external ? configured : new URL(configured, location.origin).toString(); return base + '?route=' + encodeURIComponent(route); },
                 async apiRequest(route, method = 'GET', payload = null) {
                     const headers = {}; if (this.authToken) headers.Authorization = 'Bearer ' + this.authToken;
                     const options = { method, headers };
@@ -347,7 +347,7 @@ export function useStoreFlow() {
                     let result;
                     try { result = JSON.parse(raw); }
                     catch (e) { const preview = raw.replace(/\s+/g, ' ').slice(0, 180); throw new Error('Respuesta no JSON (' + response.status + ', ' + (response.headers.get('content-type') || 'sin Content-Type') + '): ' + (preview || 'sin contenido')); }
-                    if (!response.ok || result.status === 'error') throw new Error(result.message || 'No se pudo completar la solicitud.');
+                    if (!response.ok || result.status === 'error') { const error = new Error(result.message || 'No se pudo completar la solicitud.'); error.status = response.status; if (response.status === 401 && this.authToken) this.logout(); throw error; }
                     return result.message;
                 },
                 async submitAuth() {
